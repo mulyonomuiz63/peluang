@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Program Peluang JS - Sederhana</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, select { padding: 5px; margin: 5px 0; }
+    button { padding: 5px 10px; margin: 5px 10px 10px 0; }
+    .result { margin-top: 20px; }
+    textarea { width: 100%; height: 300px; margin-bottom: 10px; }
+    .count { font-weight: bold; color: darkblue; margin-bottom: 5px; }
+    .time { font-size: 13px; color: darkred; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Program Peluang Kombinasi Angka (JS)</h2>
+  
+  <label>Masukkan angka (max 7 digit, boleh ada digit ganda):</label><br>
+  <input type="text" id="angka" maxlength="7" pattern="\d+"><br>
+
+  <label>Pilih panjang kombinasi:</label><br>
+  <select id="panjang">
+    <option value="2">2 digit</option>
+    <option value="3">3 digit</option>
+    <option value="4" selected>4 digit</option>
+  </select><br>
+
+  <button onclick="proses()">Proses</button>
+
+  <div class="result">
+    <h4>Kombinasi (boleh sama):</h4>
+    <div class="count" id="countWithRepeat"></div>
+    <div class="time" id="timeWithRepeat"></div>
+    <textarea id="withRepeat" readonly></textarea><br>
+    <button onclick="downloadFile('withRepeat','txt')">Download TXT</button>
+    <button onclick="downloadFile('withRepeat','csv')">Download CSV</button>
+
+    <h4>Kombinasi (tidak boleh sama):</h4>
+    <div class="count" id="countNoRepeat"></div>
+    <div class="time" id="timeNoRepeat"></div>
+    <textarea id="noRepeat" readonly></textarea><br>
+    <button onclick="downloadFile('noRepeat','txt')">Download TXT</button>
+    <button onclick="downloadFile('noRepeat','csv')">Download CSV</button>
+  </div>
+
+  <script>
+    let cacheData = { withRepeat: [], noRepeat: [] };
+
+    function generateCombinations(arr, length, allowRepeat) {
+      let results = [];
+      function helper(path, used) {
+        if (path.length === length) {
+          results.push(path.join(""));
+          return;
+        }
+        for (let i = 0; i < arr.length; i++) {
+          if (!allowRepeat && used.includes(i)) continue;
+          helper([...path, arr[i]], allowRepeat ? used : [...used, i]);
+        }
+      }
+      helper([], []);
+      return results;
+    }
+
+    function hitungPeluangKombinasi(data, freq, totalDigit) {
+      return data.map(item => {
+        let peluang = 1;
+        item.split("").forEach(d => {
+          peluang *= freq[d] / totalDigit;
+        });
+        return { kombinasi: item, peluang };
+      });
+    }
+
+    function top1PeluangKombinasi(dataObj) {
+      return dataObj.sort((a,b) => b.peluang - a.peluang)[0];
+    }
+
+    function proses() {
+      let input = document.getElementById("angka").value.trim();
+      let panjang = parseInt(document.getElementById("panjang").value);
+
+      if (!/^\d{1,7}$/.test(input)) {
+        alert("Input hanya angka, maksimal 7 digit!");
+        return;
+      }
+
+      let digits = input.split("");
+      let n = digits.length;
+
+      // frekuensi digit
+      let freq = {};
+      digits.forEach(d => freq[d] = (freq[d] || 0) + 1);
+      let totalDigit = digits.length;
+
+      // ======= Kombinasi boleh sama =======
+      let t1 = performance.now();
+      let withRepeat = generateCombinations(digits, panjang, true);
+      let t2 = performance.now();
+      cacheData.withRepeat = withRepeat;
+      document.getElementById("withRepeat").value = withRepeat.join(", ");
+      document.getElementById("countWithRepeat").innerText = "Total data: " + withRepeat.length;
+      document.getElementById("timeWithRepeat").innerText = "Waktu proses: " + (t2-t1).toFixed(2) + " ms";
+
+      // hitung peluang kombinasi internal (tidak ditampilkan)
+      let peluangData1 = hitungPeluangKombinasi(withRepeat, freq, totalDigit);
+      let top1 = top1PeluangKombinasi(peluangData1);
+
+      // ======= Kombinasi tidak boleh sama =======
+      let t3 = performance.now();
+      let noRepeat = [];
+      if(panjang <= n) noRepeat = generateCombinations(digits, panjang, false);
+      let t4 = performance.now();
+      cacheData.noRepeat = noRepeat;
+      document.getElementById("noRepeat").value = noRepeat.join(", ");
+      document.getElementById("countNoRepeat").innerText = "Total data: " + noRepeat.length;
+      document.getElementById("timeNoRepeat").innerText = "Waktu proses: " + (t4-t3).toFixed(2) + " ms";
+
+      // hitung peluang kombinasi internal
+      let peluangData2 = hitungPeluangKombinasi(noRepeat, freq, totalDigit);
+      let topNoRepeat = top1PeluangKombinasi(peluangData2);
+    }
+
+    function downloadFile(id, type){
+      let data = cacheData[id];
+      if(!data || data.length===0){ alert("Belum ada data untuk di-download!"); return; }
+
+      let content, filename;
+      if(type==='csv'){ content = data.join("\n"); filename = id+".csv"; }
+      else{ content = data.join(", "); filename = id+".txt"; }
+
+      let blob = new Blob([content], {type:"text/plain"});
+      let link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+    }
+  </script>
+</body>
+</html>
